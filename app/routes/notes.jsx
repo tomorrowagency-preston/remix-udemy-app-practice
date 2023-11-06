@@ -3,8 +3,8 @@ import newNoteStyles from "../components/NewNote.css";
 import NoteList from "../components/NoteList";
 import noteListStyles from "../components/NoteList.css";
 import { getStoredNotes, storeNotes } from "../data/notes";
-import { redirect } from "@remix-run/node";
-import { useLoaderData, useActionData } from "@remix-run/react";
+import { redirect, json } from "@remix-run/node";
+import { useLoaderData, useActionData, useRouteError, Link, isRouteErrorResponse } from "@remix-run/react";
 
 
 // loader() is not client side code
@@ -18,12 +18,22 @@ export async function loader() {
   return notes;
 }
 
+
 // COMPONENT
 const Notes = () => {
 
   const notes = useLoaderData();
 
   console.log('---NOTES', notes);
+
+  // TODO: learn how to display this - it changed in V2 and is now handled via ErrorBoundary() but I'm
+  // unable to get this text to appear on the screen - it was previously handled via CatchBoundary()
+  if (!notes || notes.length < 1) {
+    throw json(
+      {error_message: "We were unable to find any notes."},
+      {status: 404, statusText: "Not Found"}
+    )
+  }
 
   // I think it makes sense to use useActionData() in the
   // same file as the action() fn but it's not necessary. It can
@@ -95,3 +105,33 @@ export async function action(data) {
 
   return redirect("/notes");
 }
+
+
+// ERROR HANDLING
+export function ErrorBoundary() {
+
+  const error = useRouteError();
+  console.log('---ROUTE ERROR DATA', error);
+
+  // when true, this is what used to go to `CatchBoundary`
+  if (isRouteErrorResponse(error)) {
+    return (
+      <div>
+        <h1>Oops</h1>
+        <p>Status: {error.status}</p>
+        <p>{error.data.message}</p>
+      </div>
+    );
+  }
+
+  return (
+    <main className="error">
+      <h1>There was a problem retrieving the notes.</h1>
+      <p>{error.message}</p>
+      <p>Return to the <Link to='/'>Homepage</Link></p>
+    </main>
+  )
+}
+
+// CatchBoundary() has been deprecated - all uncaught errors are handled by ErrorBoundary()
+// export function CatchBoundary() {}
